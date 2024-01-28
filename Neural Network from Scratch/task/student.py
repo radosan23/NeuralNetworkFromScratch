@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import os
-import requests
 from matplotlib import pyplot as plt
 
 
@@ -33,24 +31,6 @@ def plot(loss_history: list, accuracy_history: list, filename='plot'):
     plt.savefig(f'{filename}.png')
 
 
-def download_data():
-    if not os.path.exists('../Data'):
-        os.mkdir('../Data')
-    # Download data if it is unavailable.
-    if ('fashion-mnist_train.csv' not in os.listdir('../Data') and
-            'fashion-mnist_test.csv' not in os.listdir('../Data')):
-        print('Train dataset loading.')
-        url = "https://www.dropbox.com/s/5vg67ndkth17mvc/fashion-mnist_train.csv?dl=1"
-        r = requests.get(url, allow_redirects=True)
-        open('../Data/fashion-mnist_train.csv', 'wb').write(r.content)
-        print('Loaded.')
-        print('Test dataset loading.')
-        url = "https://www.dropbox.com/s/9bj5a14unl5os6a/fashion-mnist_test.csv?dl=1"
-        r = requests.get(url, allow_redirects=True)
-        open('../Data/fashion-mnist_test.csv', 'wb').write(r.content)
-        print('Loaded.')
-
-
 def scale(data: np.ndarray) -> np.ndarray:
     return data / data.max()
 
@@ -60,12 +40,22 @@ def xavier(n_in: int, n_out: int) -> np.ndarray:
     return np.random.uniform(-limit, limit, (n_in, n_out))
 
 
-def sigmoid(x: float) -> float:
-    return 1 / (1 + np.e ** -x)
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    return 1 / (1 + np.exp(-x))
+
+
+class OneLayerNeural:
+    def __init__(self, n_features, n_classes):
+        self.weights = xavier(n_features, n_classes)
+        self.bias = xavier(1, n_classes)
+        self.prediction = None
+
+    def forward(self, X: np.ndarray) -> np.ndarray:
+        self.prediction = sigmoid(np.matmul(X, self.weights) + self.bias)
+        return self.prediction
 
 
 def main():
-    download_data()
     # Read train, test data.
     raw_train = pd.read_csv('../Data/fashion-mnist_train.csv')
     raw_test = pd.read_csv('../Data/fashion-mnist_test.csv')
@@ -77,10 +67,9 @@ def main():
     y_test = one_hot(raw_test['label'].values)
 
     X_train_s, X_test_s = scale(X_train), scale(X_test)
-    answer_scale = [X_train_s[2, 778], X_test_s[0, 774]]
-    answer_xavier = xavier(2, 3).flatten().tolist()
-    answer_sigmoid = [sigmoid(x) for x in (-1, 0, 1, 2)]
-    print(answer_scale, answer_xavier, answer_sigmoid)
+
+    network = OneLayerNeural(X_train_s.shape[1], y_train.shape[1])
+    print(network.forward(X_train_s[:2]).flatten().tolist())
 
 
 if __name__ == '__main__':
