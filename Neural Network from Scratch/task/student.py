@@ -44,15 +44,15 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
     return 1 / (1 + np.exp(-x))
 
 
-def d_sigmoid(x):
-    return sigmoid(x) * (1 - sigmoid(x))
+def d_sigmoid(x: np.ndarray) -> np.ndarray:
+    return x * (1 - x)
 
 
-def mse(y_pred: np.ndarray, y_true: np.ndarray):
-    return np.mean((y_pred - y_true) ** 2, keepdims=True)
+def mse(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
+    return np.mean((y_pred - y_true) ** 2)
 
 
-def d_mse(y_pred, y_true):
+def d_mse(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     return 2 * (y_pred - y_true)
 
 
@@ -62,34 +62,39 @@ class OneLayerNeural:
         self.bias = xavier(1, n_classes)
         self.prediction = None
 
-    def forward(self, X: np.ndarray) -> np.ndarray:
-        self.prediction = sigmoid(np.matmul(X, self.weights) + self.bias)
-        return self.prediction
+    def forward(self, X: np.ndarray) -> None:
+        self.prediction = sigmoid(np.dot(X, self.weights) + self.bias)
 
-    def backprop(self, X, y, alpha=0.1):
-        pass
+    def backprop(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.1) -> None:
+        grad_weights = np.dot(X.T, d_sigmoid(self.prediction) * d_mse(self.prediction, y)) / X.shape[0]
+        grad_bias = np.mean(d_sigmoid(self.prediction) * d_mse(self.prediction, y), axis=0)
+        self.weights -= alpha * grad_weights
+        self.bias -= alpha * grad_bias
 
 
 def main():
     # Read train, test data.
     raw_train = pd.read_csv('../Data/fashion-mnist_train.csv')
     raw_test = pd.read_csv('../Data/fashion-mnist_test.csv')
-
     X_train = raw_train[raw_train.columns[1:]].values
     X_test = raw_test[raw_test.columns[1:]].values
-
     y_train = one_hot(raw_train['label'].values)
     y_test = one_hot(raw_test['label'].values)
     # rescale the data
     X_train_s, X_test_s = scale(X_train), scale(X_test)
+
     # network operations
     network = OneLayerNeural(X_train_s.shape[1], y_train.shape[1])
-    network.forward(X_train_s[:2])
+    for _ in range(2):
+        network.forward(X_train_s[:2])
+        network.backprop(X_train_s[:2], y_train[:2])
+
     # test answers
-    ans_mse = mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).tolist()
-    ans_dmse = d_mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).tolist()
-    ans_dsigm = d_sigmoid(np.array([-1, 0, 1, 2])).tolist()
-    print(ans_mse, ans_dmse, ans_dsigm)
+    ans_mse = mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).flatten().tolist()
+    ans_dmse = d_mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).flatten().tolist()
+    ans_dsigm = d_sigmoid(sigmoid(np.array([-1, 0, 1, 2]))).flatten().tolist()
+    net_mse = mse(network.prediction, y_train[:2]).flatten().tolist()
+    print(ans_mse, ans_dmse, ans_dsigm, net_mse)
 
 
 if __name__ == '__main__':
