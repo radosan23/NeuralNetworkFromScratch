@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from tqdm import trange
 
 
 def one_hot(data: np.ndarray) -> np.ndarray:
@@ -56,6 +57,21 @@ def d_mse(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     return 2 * (y_pred - y_true)
 
 
+def train_epoch(estimator, X, y, alpha, batch=100):
+    n = X.shape[0]
+    for i in range(0, n, batch):
+        estimator.forward(X[i:i + batch])
+        estimator.backprop(X[i:i + batch], y[i:i + batch], alpha)
+    estimator.forward(X)
+    return mse(estimator.prediction, y)
+
+
+def accuracy(estimator, X, y):
+    estimator.forward(X)
+    true_pred = np.argmax(estimator.prediction, axis=1) == np.argmax(y, axis=1)
+    return np.sum(true_pred) / y.shape[0]
+
+
 class OneLayerNeural:
     def __init__(self, n_features, n_classes):
         self.weights = xavier(n_features, n_classes)
@@ -85,16 +101,16 @@ def main():
 
     # network operations
     network = OneLayerNeural(X_train_s.shape[1], y_train.shape[1])
-    for _ in range(2):
-        network.forward(X_train_s[:2])
-        network.backprop(X_train_s[:2], y_train[:2])
+    acc_test = accuracy(network, X_test_s, y_test)
+    mse_logg = []
+    acc_logg = []
+    for _ in trange(20):
+        mse_logg.append(train_epoch(network, X_train_s, y_train, alpha=0.5))
+        acc_logg.append(accuracy(network, X_test_s, y_test))
 
     # test answers
-    ans_mse = mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).flatten().tolist()
-    ans_dmse = d_mse(np.array([-1, 0, 1, 2]), np.array(([4, 3, 2, 1]))).flatten().tolist()
-    ans_dsigm = d_sigmoid(sigmoid(np.array([-1, 0, 1, 2]))).flatten().tolist()
-    net_mse = mse(network.prediction, y_train[:2]).flatten().tolist()
-    print(ans_mse, ans_dmse, ans_dsigm, net_mse)
+    print(acc_test.flatten().tolist(), acc_logg)
+    plot(mse_logg, acc_logg)
 
 
 if __name__ == '__main__':
