@@ -88,6 +88,32 @@ class OneLayerNeural:
         self.bias -= alpha * grad_bias
 
 
+class TwoLayerNeural:
+    def __init__(self, n_features, n_classes):
+        self.n_hidden = 64
+        self.w_1 = xavier(n_features, self.n_hidden)
+        self.b_1 = xavier(1, self.n_hidden)
+        self.a_1 = None
+        self.w_out = xavier(self.n_hidden, n_classes)
+        self.b_out = xavier(1, n_classes)
+        self.prediction = None
+
+    def forward(self, X: np.ndarray) -> None:
+        self.a_1 = sigmoid(np.dot(X, self.w_1) + self.b_1)
+        self.prediction = sigmoid(np.dot(self.a_1, self.w_out) + self.b_out)
+
+
+def test_1layer(X_train, y_train, X_test, y_test):
+    network = OneLayerNeural(X_train.shape[1], y_train.shape[1])
+    mse_logg = []
+    acc_logg = []
+    for _ in trange(20):
+        mse_logg.append(train_epoch(network, X_train, y_train, alpha=0.5))
+        acc_logg.append(accuracy(network, X_test, y_test))
+    print(acc_logg)
+    plot(mse_logg, acc_logg)
+
+
 def main():
     # Read train, test data.
     raw_train = pd.read_csv('../Data/fashion-mnist_train.csv')
@@ -100,17 +126,11 @@ def main():
     X_train_s, X_test_s = scale(X_train), scale(X_test)
 
     # network operations
-    network = OneLayerNeural(X_train_s.shape[1], y_train.shape[1])
-    acc_test = accuracy(network, X_test_s, y_test)
-    mse_logg = []
-    acc_logg = []
-    for _ in trange(20):
-        mse_logg.append(train_epoch(network, X_train_s, y_train, alpha=0.5))
-        acc_logg.append(accuracy(network, X_test_s, y_test))
+    network = TwoLayerNeural(X_train_s.shape[1], y_train.shape[1])
+    network.forward(X_train_s[:2])
 
     # test answers
-    print(acc_test.flatten().tolist(), acc_logg)
-    plot(mse_logg, acc_logg)
+    print(network.prediction.flatten().tolist())
 
 
 if __name__ == '__main__':
