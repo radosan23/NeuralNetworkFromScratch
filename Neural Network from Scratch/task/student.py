@@ -82,7 +82,7 @@ class OneLayerNeural:
         self.prediction = sigmoid(np.dot(X, self.weights) + self.bias)
 
     def backprop(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.1) -> None:
-        grad_weights = np.dot(X.T, d_sigmoid(self.prediction) * d_mse(self.prediction, y)) / X.shape[0]
+        grad_weights = np.dot(X.T, d_sigmoid(self.prediction) * d_mse(self.prediction, y) / X.shape[0])
         grad_bias = np.mean(d_sigmoid(self.prediction) * d_mse(self.prediction, y), axis=0)
         self.weights -= alpha * grad_weights
         self.bias -= alpha * grad_bias
@@ -101,6 +101,18 @@ class TwoLayerNeural:
     def forward(self, X: np.ndarray) -> None:
         self.a_1 = sigmoid(np.dot(X, self.w_1) + self.b_1)
         self.prediction = sigmoid(np.dot(self.a_1, self.w_out) + self.b_out)
+
+    def backprop(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.1) -> None:
+        upstream = d_sigmoid(self.prediction) * d_mse(self.prediction, y) / X.shape[0]
+        grad_w_out = np.dot(self.a_1.T, upstream)
+        grad_b_out = np.sum(upstream, axis=0)
+        upstream = d_sigmoid(self.a_1) * np.dot(upstream, self.w_out.T)
+        grad_w_1 = np.dot(X.T, upstream)
+        grad_b_1 = np.sum(upstream, axis=0)
+        self.w_out -= alpha * grad_w_out
+        self.b_out -= alpha * grad_b_out
+        self.w_1 -= alpha * grad_w_1
+        self.b_1 -= alpha * grad_b_1
 
 
 def test_1layer(X_train, y_train, X_test, y_test):
@@ -128,9 +140,11 @@ def main():
     # network operations
     network = TwoLayerNeural(X_train_s.shape[1], y_train.shape[1])
     network.forward(X_train_s[:2])
+    network.backprop(X_train_s[:2], y_train[:2])
+    network.forward(X_train_s[:2])
 
     # test answers
-    print(network.prediction.flatten().tolist())
+    print(mse(network.prediction, y_train[:2]).flatten().tolist())
 
 
 if __name__ == '__main__':
