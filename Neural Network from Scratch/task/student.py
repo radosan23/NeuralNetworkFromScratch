@@ -12,7 +12,6 @@ def one_hot(data: np.ndarray) -> np.ndarray:
 
 
 def plot(loss_history: list, accuracy_history: list, filename='plot'):
-    # function to visualize learning process at stage 4
     n_epochs = len(loss_history)
     plt.figure(figsize=(20, 10))
     plt.subplot(1, 2, 1)
@@ -115,17 +114,6 @@ class TwoLayerNeural:
         self.b_1 -= alpha * grad_b_1
 
 
-def test_1layer(X_train, y_train, X_test, y_test):
-    network = OneLayerNeural(X_train.shape[1], y_train.shape[1])
-    mse_logg = []
-    acc_logg = []
-    for _ in trange(20):
-        mse_logg.append(train_epoch(network, X_train, y_train, alpha=0.5))
-        acc_logg.append(accuracy(network, X_test, y_test))
-    print(acc_logg)
-    plot(mse_logg, acc_logg)
-
-
 def main():
     # Read train, test data.
     raw_train = pd.read_csv('../Data/fashion-mnist_train.csv')
@@ -137,14 +125,17 @@ def main():
     # rescale the data
     X_train_s, X_test_s = scale(X_train), scale(X_test)
 
-    # network operations
+    # train network
     network = TwoLayerNeural(X_train_s.shape[1], y_train.shape[1])
-    network.forward(X_train_s[:2])
-    network.backprop(X_train_s[:2], y_train[:2])
-    network.forward(X_train_s[:2])
+    mse_logg = []
+    acc_logg = []
+    for _ in trange(20):
+        mse_logg.append(train_epoch(network, X_train_s, y_train, alpha=0.5))
+        acc_logg.append(accuracy(network, X_test_s, y_test))
 
-    # test answers
-    print(mse(network.prediction, y_train[:2]).flatten().tolist())
+    # print accuracy change, make plots
+    print(acc_logg)
+    plot(mse_logg, acc_logg)
 
 
 if __name__ == '__main__':
