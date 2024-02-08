@@ -48,7 +48,7 @@ def d_sigmoid(x: np.ndarray) -> np.ndarray:
     return x * (1 - x)
 
 
-def mse(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
+def mse(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     return np.mean((y_pred - y_true) ** 2)
 
 
@@ -56,18 +56,18 @@ def d_mse(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     return 2 * (y_pred - y_true)
 
 
-def train_epoch(estimator, X, y, alpha, batch=100):
+def train_epoch(estimator, X: np.ndarray, y: np.ndarray, alpha: float, batch: int = 100) -> float:
     n = X.shape[0]
     for i in range(0, n, batch):
         estimator.forward(X[i:i + batch])
         estimator.backprop(X[i:i + batch], y[i:i + batch], alpha)
     estimator.forward(X)
-    return mse(estimator.prediction, y)
+    return mse(estimator.activations[-1], y)
 
 
-def accuracy(estimator, X, y):
+def accuracy(estimator, X: np.ndarray, y: np.ndarray) -> float:
     estimator.forward(X)
-    true_pred = np.argmax(estimator.prediction, axis=1) == np.argmax(y, axis=1)
+    true_pred = np.argmax(estimator.activations[-1], axis=1) == np.argmax(y, axis=1)
     return np.sum(true_pred) / y.shape[0]
 
 
@@ -87,31 +87,29 @@ class OneLayerNeural:
         self.bias -= alpha * grad_bias
 
 
-class TwoLayerNeural:
-    def __init__(self, n_features, n_classes):
-        self.n_hidden = 64
-        self.w_1 = xavier(n_features, self.n_hidden)
-        self.b_1 = xavier(1, self.n_hidden)
-        self.a_1 = None
-        self.w_out = xavier(self.n_hidden, n_classes)
-        self.b_out = xavier(1, n_classes)
-        self.prediction = None
+class NLayerNeural:
+    def __init__(self, n_features, n_classes, hidden=(64,)):
+        self.neurons = [n_features, *hidden, n_classes]
+        self.n_layers = len(self.neurons) - 1
+        self.weights = [xavier(self.neurons[i], self.neurons[i+1]) for i in range(self.n_layers)]
+        self.biases = [xavier(1, self.neurons[i+1]) for i in range(self.n_layers)]
+        self.activations = None
 
     def forward(self, X: np.ndarray) -> None:
-        self.a_1 = sigmoid(np.dot(X, self.w_1) + self.b_1)
-        self.prediction = sigmoid(np.dot(self.a_1, self.w_out) + self.b_out)
+        self.activations = [X,]
+        for i in range(self.n_layers):
+            self.activations.append(sigmoid(np.dot(self.activations[i], self.weights[i]) + self.biases[i]))
 
     def backprop(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.1) -> None:
-        upstream = d_sigmoid(self.prediction) * d_mse(self.prediction, y) / X.shape[0]
-        grad_w_out = np.dot(self.a_1.T, upstream)
-        grad_b_out = np.sum(upstream, axis=0)
-        upstream = d_sigmoid(self.a_1) * np.dot(upstream, self.w_out.T)
-        grad_w_1 = np.dot(X.T, upstream)
-        grad_b_1 = np.sum(upstream, axis=0)
-        self.w_out -= alpha * grad_w_out
-        self.b_out -= alpha * grad_b_out
-        self.w_1 -= alpha * grad_w_1
-        self.b_1 -= alpha * grad_b_1
+        upstream = d_sigmoid(self.activations[-1]) * d_mse(self.activations[-1], y) / X.shape[0]
+        grad_w, grad_b = [], []
+        for i in range(self.n_layers):  # calculate gradients
+            grad_w.append(np.dot(self.activations[-2-i].T, upstream))
+            grad_b.append(np.sum(upstream, axis=0))
+            upstream = d_sigmoid(self.activations[-2-i]) * np.dot(upstream, self.weights[-1-i].T)
+        for i in range(self.n_layers):  # update weights and biases
+            self.weights[i] -= alpha * grad_w[::-1][i]
+            self.biases[i] -= alpha * grad_b[::-1][i]
 
 
 def main():
@@ -126,9 +124,8 @@ def main():
     X_train_s, X_test_s = scale(X_train), scale(X_test)
 
     # train network
-    network = TwoLayerNeural(X_train_s.shape[1], y_train.shape[1])
-    mse_logg = []
-    acc_logg = []
+    network = NLayerNeural(X_train_s.shape[1], y_train.shape[1], hidden=(64,))
+    mse_logg, acc_logg = [], []
     for _ in trange(20):
         mse_logg.append(train_epoch(network, X_train_s, y_train, alpha=0.5))
         acc_logg.append(accuracy(network, X_test_s, y_test))
